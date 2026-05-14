@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from shared import load_dataset_sidebar
+from shared import load_dataset_sidebar, render_footer
 from iqa import IQACalculator
 
 st.set_page_config(
@@ -16,6 +16,7 @@ df = load_dataset_sidebar()
 campanha = st.session_state.get("current_campanha", "")
 
 st.title("💧 Índice de Qualidade da Água (IQA)")
+
 st.caption(f"Campanha: **{campanha}** — Modelo CETESB/NSF")
 
 st.markdown(
@@ -241,3 +242,5 @@ with st.expander("📚 Referências e Metodologia"):
     - Quando um parâmetro está ausente, os pesos são **renormalizados**
       para manter a escala de 0–100.
     """)
+
+render_footer()
