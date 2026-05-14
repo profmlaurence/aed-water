@@ -53,7 +53,7 @@ class AnalysisPlots:
             zmin=-1, zmax=1, aspect='auto'
         )
         fig.update_layout(margin=dict(t=30, b=30))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def _tab_visao_geral(self):
         """Conteúdo da tab Visão Geral."""
@@ -76,7 +76,7 @@ class AnalysisPlots:
             color_discrete_sequence=px.colors.qualitative.Set2
         )
         fig.update_layout(margin=dict(t=30, b=30))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def _plot_violin(self, feature: str):
         """Gráfico violino de uma variável."""
@@ -85,7 +85,7 @@ class AnalysisPlots:
             color_discrete_sequence=px.colors.qualitative.Set2
         )
         fig.update_layout(margin=dict(t=30, b=30))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def _tab_distribuicoes(self):
         """Conteúdo da tab Distribuições."""
@@ -133,7 +133,7 @@ class AnalysisPlots:
             color_continuous_scale=px.colors.diverging.Tealrose
         )
         fig.update_layout(margin=dict(t=30, b=30))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def _plot_spider_chart(self):
         """Gráfico de radar (Spider Chart) com a média de cada variável."""
@@ -164,7 +164,7 @@ class AnalysisPlots:
             polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
             margin=dict(t=30, b=30)
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def _plot_scatter_matrix(self):
         """Matriz de dispersão."""
@@ -180,7 +180,7 @@ class AnalysisPlots:
         )
         fig.update_layout(height=700, margin=dict(t=30, b=30))
         fig.update_traces(diagonal_visible=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def _tab_multivariada(self):
         """Conteúdo da tab Análise Multivariada."""
@@ -219,7 +219,7 @@ class AnalysisPlots:
             color_discrete_sequence=px.colors.qualitative.Set2
         )
         fig.update_layout(height=600, margin=dict(t=30, b=30))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def _tab_avancado(self):
         """Conteúdo da tab Avançado."""

@@ -1,10 +1,10 @@
 import streamlit as st
 from shared import load_dataset_sidebar
 
-st.set_page_config(page_title="MonitorWater", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Análise Exploratória de Água", page_icon="📊", layout="wide")
 
 # ── Cabeçalho ────────────────────────────────────────────────────────────────
-st.title("📊 MonitorWater")
+st.title("Análise Exploratória de Água")
 st.caption("Explore as propriedades físico-químicas do dataset de qualidade da água.")
 st.subheader("Mikaela")
 
