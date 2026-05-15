@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import io
+from shared import explicar_grafico
 
 
 class AnalysisPlots:
@@ -54,6 +55,7 @@ class AnalysisPlots:
         )
         fig.update_layout(margin=dict(t=30, b=30))
         st.plotly_chart(fig, width='stretch')
+        return fig
 
     def _tab_visao_geral(self):
         """Conteúdo da tab Visão Geral."""
@@ -65,7 +67,16 @@ class AnalysisPlots:
             "diversas propriedades da água. Valores próximos de **+1** ou **-1** "
             "indicam relações lineares fortes."
         )
-        self._plot_correlation_heatmap()
+        fig = self._plot_correlation_heatmap()
+        
+        if fig and st.button("Explicar Correlações com IA", icon="🧠", key="explain_corr"):
+            with st.spinner("Analisando as correlações..."):
+                explicacao = explicar_grafico(
+                    fig, 
+                    user_prompt="Identifique e explique as principais correlações positivas e negativas deste mapa de calor de propriedades da água."
+                )
+                st.badge("Modelo: gemini-flash 2.5", icon="🤖",color="blue")
+                st.markdown(explicacao)
 
     # ── Tab 2: Distribuições ──────────────────────────────────────────────────
 
@@ -77,6 +88,7 @@ class AnalysisPlots:
         )
         fig.update_layout(margin=dict(t=30, b=30))
         st.plotly_chart(fig, width='stretch')
+        return fig
 
     def _plot_violin(self, feature: str):
         """Gráfico violino de uma variável."""
@@ -86,6 +98,7 @@ class AnalysisPlots:
         )
         fig.update_layout(margin=dict(t=30, b=30))
         st.plotly_chart(fig, width='stretch')
+        return fig
 
     def _tab_distribuicoes(self):
         """Conteúdo da tab Distribuições."""
@@ -103,7 +116,16 @@ class AnalysisPlots:
         feat_hist = st.selectbox(
             "Selecione a propriedade:", self.features, key="dist_selectbox"
         )
-        self._plot_feature_distribution(feat_hist)
+        fig_hist = self._plot_feature_distribution(feat_hist)
+
+        if st.button("Explicar Distribuição com IA", icon="🧠", key="explain_hist"):
+            with st.spinner("Analisando a distribuição..."):
+                explicacao = explicar_grafico(
+                    fig_hist,
+                    user_prompt=f"Analise a distribuição da variável {feat_hist} (histograma e boxplot) e explique o que os dados sugerem sobre a qualidade da água."
+                )
+                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
+                st.markdown(explicacao)
 
         st.divider()
 
@@ -115,7 +137,16 @@ class AnalysisPlots:
         feat_violin = st.selectbox(
             "Selecione a propriedade:", self.features, key="violin_selectbox"
         )
-        self._plot_violin(feat_violin)
+        fig_violin = self._plot_violin(feat_violin)
+
+        if st.button("Explicar Violino com IA", icon="🧠", key="explain_violin"):
+            with st.spinner("Analisando o gráfico violino..."):
+                explicacao = explicar_grafico(
+                    fig_violin,
+                    user_prompt=f"Explique o gráfico violino da variável {feat_violin}, destacando a densidade dos dados e a presença de outliers."
+                )
+                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
+                st.markdown(explicacao)
 
     # ── Tab 3: Análise Multivariada ───────────────────────────────────────────
 
@@ -134,6 +165,7 @@ class AnalysisPlots:
         )
         fig.update_layout(margin=dict(t=30, b=30))
         st.plotly_chart(fig, width='stretch')
+        return fig
 
     def _plot_spider_chart(self):
         """Gráfico de radar (Spider Chart) com a média de cada variável."""
@@ -165,6 +197,7 @@ class AnalysisPlots:
             margin=dict(t=30, b=30)
         )
         st.plotly_chart(fig, width='stretch')
+        return fig
 
     def _plot_scatter_matrix(self):
         """Matriz de dispersão."""
@@ -181,6 +214,7 @@ class AnalysisPlots:
         fig.update_layout(height=700, margin=dict(t=30, b=30))
         fig.update_traces(diagonal_visible=False)
         st.plotly_chart(fig, width='stretch')
+        return fig
 
     def _tab_multivariada(self):
         """Conteúdo da tab Análise Multivariada."""
@@ -191,7 +225,16 @@ class AnalysisPlots:
             "Cada linha representa uma amostra passando por todos os eixos. "
             "Ajuda a encontrar padrões e faixas de valores entre as variáveis."
         )
-        self._plot_parallel_coordinates()
+        fig_parallel = self._plot_parallel_coordinates()
+
+        if st.button("Explicar com IA", icon="🧠", key="explain_parallel"):
+            with st.spinner("Analisando as coordenadas paralelas..."):
+                explicacao = explicar_grafico(
+                    fig_parallel,
+                    user_prompt=f"Explique as coordenadas paralelas, destacando os principais padrões e relações entre as variáveis."
+                )
+                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
+                st.markdown(explicacao)
 
         st.divider()
 
@@ -200,7 +243,16 @@ class AnalysisPlots:
             "Assinatura visual usando a média normalizada de cada propriedade. "
             "Permite uma visão holística rápida das variáveis."
         )
-        self._plot_spider_chart()
+        fig_radar = self._plot_spider_chart()
+
+        if st.button("Explicar com IA", icon="🧠", key="explain_radar"):
+            with st.spinner("Analisando o gráfico de radar..."):
+                explicacao = explicar_grafico(
+                    fig_radar,
+                    user_prompt=f"Explique o gráfico de radar, destacando os principais padrões e relações entre as variáveis."
+                )
+                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
+                st.markdown(explicacao)
 
         st.divider()
 
@@ -208,7 +260,16 @@ class AnalysisPlots:
         st.caption(
             "Visão cruzada de todas as propriedades entre si."
         )
-        self._plot_scatter_matrix()
+        fig_scatter_matrix = self._plot_scatter_matrix()
+
+        if st.button("Explicar com IA", icon="🧠", key="explain_scatter_matrix"):
+            with st.spinner("Analisando a matriz de dispersão..."):
+                explicacao = explicar_grafico(
+                    fig_scatter_matrix,
+                    user_prompt=f"Explique a matriz de dispersão, destacando os principais padrões e relações entre as variáveis."
+                )
+                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
+                st.markdown(explicacao)
 
     # ── Tab 4: Avançado ───────────────────────────────────────────────────────
 
@@ -220,6 +281,7 @@ class AnalysisPlots:
         )
         fig.update_layout(height=600, margin=dict(t=30, b=30))
         st.plotly_chart(fig, width='stretch')
+        return fig
 
     def _tab_avancado(self):
         """Conteúdo da tab Avançado."""
@@ -258,7 +320,17 @@ class AnalysisPlots:
                 index=min(2, len(self.features) - 1),
                 key='3d_z',
             )
-        self._plot_3d_scatter(x=x_3d, y=y_3d, z=z_3d)
+        fig_3d = self._plot_3d_scatter(x=x_3d, y=y_3d, z=z_3d)
+
+        if st.button("Explicar com IA", icon="🧠", key="explain_3d"):
+            with st.spinner("Analisando o gráfico 3D..."):
+                explicacao = explicar_grafico(
+                    fig_3d,
+                    user_prompt=f"Explique o gráfico 3D, destacando os principais padrões e relações entre as variáveis."
+                )
+                st.badge("Modelo: gemini-flash 2.5", color="blue")
+                st.markdown(explicacao)    
+
 
     # ── Entry Point ───────────────────────────────────────────────────────────
 

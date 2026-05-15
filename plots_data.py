@@ -6,6 +6,8 @@ from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 import io
+import os
+from shared import explicar_grafico
 
 
 class PlotsData:
@@ -120,15 +122,28 @@ class PlotsData:
         pca_result = pca.fit_transform(scaled_df)
         pca_df = pd.DataFrame(pca_result, columns=['PCA1', 'PCA2'], index=scaled_df.index)
 
-        tab_scatter, tab_biplot = st.tabs(
-            ["Gráfico de Dispersão PCA", "Biplot PCA"]
+        tab_scatter, tab_biplot, tab_explicacao = st.tabs(
+            ["Gráfico de Dispersão PCA", "Biplot PCA", "Explicação detalhada com IA (Gemini)"]
         )
 
         with tab_scatter:
-            self._plot_pca_scatter(pca_df)
+            fig_scatter = self._plot_pca_scatter(pca_df)
+            if st.button("Explicar Dispersão com IA", icon="🧠", key="explain_pca_scatter"):
+                with st.spinner("Analisando a dispersão..."):
+                    res = explicar_grafico(fig_scatter, user_prompt="Explique este gráfico de dispersão de PCA, focando no agrupamento dos pontos.")
+                    st.badge("Modelo: gemini-2.5-flash", color="info")
+                    st.markdown(res)
 
         with tab_biplot:
-            self._plot_pca_biplot(pca, pca_result, scaled_df)
+            fig_biplot = self._plot_pca_biplot(pca, pca_result, scaled_df)
+            if st.button("Explicar Biplot com IA", icon="🧠", key="explain_pca_biplot"):
+                with st.spinner("Analisando o biplot..."):
+                    res = explicar_grafico(fig_biplot, user_prompt="Explique este Biplot de PCA, analisando a relação entre as variáveis (setas) e os pontos.")
+                    st.badge("Modelo: gemini-2.5-flash", color="info")
+                    st.markdown(res)
+
+        with tab_explicacao:
+            self.explicar_pca(pca, scaled_df.columns)
 
     def _plot_pca_scatter(self, pca_df: pd.DataFrame):
         """Gráfico de dispersão dos componentes principais."""
@@ -146,6 +161,7 @@ class PlotsData:
         st.pyplot(fig)
 
         self._add_download_button(fig, "⬇️ Baixar Imagem da Dispersão", "dispersao_pca.png")
+        return fig
 
     def _plot_pca_biplot(self, pca: PCA, pca_result: np.ndarray,
                          scaled_df: pd.DataFrame):
@@ -178,6 +194,7 @@ class PlotsData:
         st.pyplot(fig)
 
         self._add_download_button(fig, "⬇️ Baixar Imagem do Biplot", "biplot_pca.png")
+        return fig
 
         # st.divider()
         col1, col2 = st.columns([1, 2])
@@ -187,6 +204,72 @@ class PlotsData:
             # for i, var in enumerate(scaled_df.columns, 1):
             #     st.badge(f"{i} - {var}", color="red")
             
+
+    def explicar_pca(self, pca: PCA, columns: pd.Index):
+        """
+        Consome a API do Gemini para gerar uma explicação do PCA.
+        """
+        st.markdown("### Explicação do PCA gerada por IA")
+        
+        # Tenta obter a chave da API dos secrets do Streamlit ou variável de ambiente
+        try:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        except (FileNotFoundError, KeyError):
+            api_key = os.environ.get("GEMINI_API_KEY")
+
+        if not api_key:
+            st.info(
+                "💡 **Dica:** Para habilitar as explicações com IA, configure sua chave de API do Google Gemini. "
+                "Adicione `GEMINI_API_KEY = 'sua-chave'` no arquivo `.streamlit/secrets.toml` "
+                "ou defina como variável de ambiente."
+            )
+            return
+
+        try:
+            from google import genai
+            
+            client = genai.Client(api_key=api_key)
+
+            variancia_explicada = pca.explained_variance_ratio_
+            loadings = pd.DataFrame(
+                pca.components_.T,
+                columns=['PC1', 'PC2'],
+                index=columns
+            )
+            
+            prompt = f"""
+            Você é um especialista em análise de dados auxiliando no Laboratório de Pesquisa em Química Ambiental (LAPEQ).
+            Analise os seguintes resultados de uma Análise de Componentes Principais (PCA) 
+            de um dataset de qualidade da água e gere um texto explicativo em português claro, em markdown.
+            
+            1. O primeiro componente (PC1) explica {variancia_explicada[0]:.1%} da variância total.
+            2. O segundo componente (PC2) explica {variancia_explicada[1]:.1%} da variância total.
+            3. Variância total explicada: {(variancia_explicada[0] + variancia_explicada[1]):.1%}
+            
+            Aqui estão as cargas (loadings) das variáveis originais em cada componente (quanto maior o valor absoluto, maior a influência da variável naquele componente):
+            
+            {loadings.to_string()}
+            
+            Por favor, explique de forma didática:
+            - O que esses dois componentes (PC1 e PC2) podem representar em termos físicos/químicos da água, baseando-se nas variáveis com maiores pesos (positivos ou negativos) em cada um.
+            - Quais variáveis andam juntas (estão correlacionadas).
+            - Um pequeno resumo sobre o que esses dados sugerem sobre a qualidade/perfil das amostras.
+            
+            Responda de forma direta e amigável.
+            """
+            
+            with st.spinner("🧠 O Gemini está analisando o gráfico..."):
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt
+                )
+                st.badge("Modelo: gemini-2.5-flash", color="info")
+                st.write(response.text)
+                
+        except ImportError:
+            st.error("O pacote `google-genai` não está instalado. Execute `pip install google-genai`.")
+        except Exception as e:
+            st.error(f"Erro ao gerar explicação: {str(e)}")
 
     def run(self):
         """Executa a análise exploratória completa."""

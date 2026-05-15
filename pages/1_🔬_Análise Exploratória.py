@@ -1,8 +1,8 @@
 import streamlit as st
-from shared import load_dataset_sidebar, render_footer
+from shared import load_dataset_sidebar, render_footer, setup_page
 from analysis import AnalysisPlots
 
-st.set_page_config(page_title="MonitorWater - Análise Avançada", page_icon="🔬", layout="wide")
+setup_page()
 
 # ── Sidebar: Seleção do Dataset ──────────────────────────────────────────────
 df = load_dataset_sidebar()

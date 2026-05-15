@@ -333,6 +333,60 @@ class IQACalculator:
 
         return pd.DataFrame(output_rows)
 
+    def explicar_iqa(self, results_df: pd.DataFrame, user_prompt: str) -> str:
+        """
+        Consome a API do Gemini para explicar os resultados do IQA baseando-se na pergunta do usuário.
+        """
+        try:
+            from google import genai
+            import streamlit as st
+            import os
+            
+            # Tenta obter a chave da API
+            try:
+                api_key = st.secrets["GEMINI_API_KEY"]
+            except (FileNotFoundError, KeyError):
+                api_key = os.environ.get("GEMINI_API_KEY")
+
+            if not api_key:
+                return "⚠️ **Chave de API não configurada.** Defina `GEMINI_API_KEY` nos secrets do Streamlit ou variáveis de ambiente."
+
+            client = genai.Client(api_key=api_key)
+            
+            df_str = results_df.copy()
+            df_str["Ponto de Coleta"] = df_str["Ponto de Coleta"].astype(str)
+            data_csv = df_str.to_csv(index=False)
+            
+            prompt = f"""
+            Você é um especialista em qualidade da água auxiliando no Laboratório de Pesquisa em Química Ambiental (LAPEQ).
+            Analise os seguintes dados do Índice de Qualidade da Água (IQA) e responda à pergunta do usuário de forma didática.
+            
+            DADOS DE IQA CALCULADOS:
+            {data_csv}
+            
+            A classificação do IQA segue a tabela:
+            - 80 a 100: Ótima
+            - 51 a 79: Boa
+            - 36 a 50: Regular
+            - 19 a 35: Ruim
+            - 0 a 18: Péssima
+            
+            PERGUNTA DO USUÁRIO:
+            "{user_prompt}"
+            """
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt
+            )
+            
+            return response.text
+            
+        except ImportError:
+            return "❌ O pacote `google-genai` não está instalado. Execute `pip install google-genai`."
+        except Exception as e:
+            return f"❌ Erro ao conectar com IA: {e}"
+    
     @staticmethod
     def _find_column(df: pd.DataFrame, target: str):
         """Busca uma coluna no DataFrame ignorando espaços extras."""

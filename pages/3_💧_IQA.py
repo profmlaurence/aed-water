@@ -2,14 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from shared import load_dataset_sidebar, render_footer
+from shared import load_dataset_sidebar, render_footer, setup_page
 from iqa import IQACalculator
 
-st.set_page_config(
-    page_title="Análise de Água - IQA",
-    page_icon="💧",
-    layout="wide"
-)
+setup_page()
 
 # ── Sidebar: Seleção do Dataset ──────────────────────────────────────────────
 df = load_dataset_sidebar()
@@ -242,5 +238,17 @@ with st.expander("📚 Referências e Metodologia"):
     - Quando um parâmetro está ausente, os pesos são **renormalizados**
       para manter a escala de 0–100.
     """)
+
+st.divider()
+
+st.markdown("## 💬 Explicação com IA")
+
+if st.button("Gerar Explicação Geral com IA", icon="🧠"):
+    with st.spinner("Analisando os resultados..."):
+        explicacao = calc.explicar_iqa(
+            results_df, 
+            user_prompt="Faça um resumo geral da qualidade da água dos pontos coletados, destacando os pontos críticos e os melhores pontos."
+        )
+        st.markdown(explicacao)
 
 render_footer()

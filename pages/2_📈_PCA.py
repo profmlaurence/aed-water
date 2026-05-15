@@ -1,8 +1,8 @@
 import streamlit as st
-from shared import load_dataset_sidebar, render_footer
+from shared import load_dataset_sidebar, render_footer, setup_page
 from plots_data import PlotsData
 
-st.set_page_config(page_title="MonitorWater - Análise Exploratória", page_icon="📈", layout="wide")
+setup_page()
 
 # ── Sidebar: Seleção do Dataset ──────────────────────────────────────────────
 df = load_dataset_sidebar()

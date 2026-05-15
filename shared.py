@@ -3,6 +3,14 @@ import streamlit as st
 import pandas as pd
 
 
+def setup_page():
+    st.set_page_config(
+        page_title="Análise Exploratória de Água",
+        page_icon="📊",
+        layout="wide"
+    )
+
+
 def load_dataset_sidebar() -> pd.DataFrame:
     """
     Exibe o seletor de campanha no sidebar e retorna o DataFrame carregado.
@@ -40,3 +48,66 @@ def render_footer():
         st.image("assets/logo-uft.png", width=80)
     with col4:
         st.image("assets/logo-lapeq.jpg", width=80)
+
+
+def explicar_grafico(fig, user_prompt: str = "Extraia os principais insights deste gráfico de qualidade da água.") -> str:
+    """
+    Consome a API do Gemini enviando a imagem do gráfico (Plotly ou Matplotlib) para análise.
+    """
+    try:
+        from google import genai
+        from google.genai import types
+        import os
+        import io
+
+        # Tenta obter a chave da API
+        try:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        except (FileNotFoundError, KeyError):
+            api_key = os.environ.get("GEMINI_API_KEY")
+
+        if not api_key:
+            return "⚠️ **Chave de API não configurada.** Defina `GEMINI_API_KEY` nos secrets do Streamlit."
+
+        client = genai.Client(api_key=api_key)
+
+        # Converte o gráfico para bytes de imagem
+        try:
+            if hasattr(fig, "to_image"): # Provavelmente Plotly
+                img_bytes = fig.to_image(format="png")
+            elif hasattr(fig, "savefig"): # Provavelmente Matplotlib
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png", bbox_inches='tight')
+                img_bytes = buf.getvalue()
+                buf.close()
+            else:
+                return "❌ Erro: O objeto fornecido não é um gráfico suportado (Plotly ou Matplotlib)."
+        except Exception as e:
+            return f"❌ Erro ao gerar a imagem do gráfico: {e}. Verifique se o pacote `kaleido` (para Plotly) está instalado corretamente."
+
+        prompt = f"""
+        Você é um especialista em qualidade da água auxiliando no Laboratório de Pesquisa em Química Ambiental (LAPEQ).
+        Analise detalhadamente o gráfico em anexo e responda.
+        
+        Contexto ou Pergunta:
+        "{user_prompt}"
+        
+        Responda de forma resumida, máximo 150 palavras.
+        """
+
+        contents = [
+            types.Part.from_bytes(data=img_bytes, mime_type='image/png'),
+            prompt
+        ]
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=contents
+        )
+
+        return response.text
+
+    except ImportError:
+        return "❌ Pacote `google-genai` não instalado."
+    except Exception as e:
+        return f"❌ Erro ao conectar com a IA: {e}"

@@ -1,7 +1,7 @@
 import streamlit as st
-from shared import load_dataset_sidebar, render_footer
+from shared import load_dataset_sidebar, render_footer, setup_page
 
-st.set_page_config(page_title="Análise Exploratória de Água", page_icon="📊", layout="wide")
+setup_page()
 
 # ── Cabeçalho ────────────────────────────────────────────────────────────────
 st.title("Análise Exploratória de Água - LAPEQ")
