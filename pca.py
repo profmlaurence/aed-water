@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
+from shared import analyse_graph
 import io
 import os
 from shared import explicar_grafico
@@ -18,6 +19,7 @@ class PlotsData:
     def __init__(self, dataset: pd.DataFrame):
         """Inicializa com o dataset a ser analisado."""
         self.dataset = dataset
+        self.model = st.session_state.get("model")
 
     def _get_numeric_data(self) -> pd.DataFrame:
         """Retorna apenas as colunas numéricas do dataset."""
@@ -33,6 +35,16 @@ class PlotsData:
             file_name=file_name,
             mime="image/png"
         )
+    
+    def _add_ia_analyze_button(self, fig: plt.Figure,key: str):
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches='tight')
+        image_bytes = buf.getvalue()
+        
+        if st.button("✨ Analisar Gráfico com IA",key=key):
+            with st.spinner("A IA está analisando o gráfico..."):
+                analise = analyse_graph(image_bytes)
+                st.write(analise)
 
     def plot_correlation_matrix(self):
         """Exibe a matriz de correlação das variáveis numéricas."""

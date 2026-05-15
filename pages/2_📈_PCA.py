@@ -1,6 +1,6 @@
 import streamlit as st
 from shared import load_dataset_sidebar, render_footer, setup_page
-from plots_data import PlotsData
+from pca import PlotsData
 
 setup_page()
 
