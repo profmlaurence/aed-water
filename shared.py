@@ -74,6 +74,13 @@ def explicar_grafico(fig, user_prompt: str = "Extraia os principais insights des
         # Converte o gráfico para bytes de imagem
         try:
             if hasattr(fig, "to_image"): # Provavelmente Plotly
+                import plotly.io as pio
+                # Configuração para ambientes Linux Headless (Streamlit Cloud)
+                try:
+                    if hasattr(pio.kaleido, "scope"):
+                        pio.kaleido.scope.chromium_args = ("--headless", "--no-sandbox", "--single-process", "--disable-gpu")
+                except Exception:
+                    pass
                 img_bytes = fig.to_image(format="png")
             elif hasattr(fig, "savefig"): # Provavelmente Matplotlib
                 buf = io.BytesIO()
@@ -83,7 +90,7 @@ def explicar_grafico(fig, user_prompt: str = "Extraia os principais insights des
             else:
                 return "❌ Erro: O objeto fornecido não é um gráfico suportado (Plotly ou Matplotlib)."
         except Exception as e:
-            return f"❌ Erro ao gerar a imagem do gráfico: {e}. Verifique se o pacote `kaleido` (para Plotly) está instalado corretamente."
+            return f"❌ Erro ao gerar a imagem do gráfico: {type(e).__name__}: {e}. Certifique-se de que o pacote `kaleido==0.2.1` está no `requirements.txt` e o `packages.txt` contém as dependências do sistema."
 
         prompt = f"""
         Você é um especialista em qualidade da água auxiliando no Laboratório de Pesquisa em Química Ambiental (LAPEQ).
