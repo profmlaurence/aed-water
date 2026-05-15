@@ -1,6 +1,6 @@
 import streamlit as st
 from shared import load_dataset_sidebar
-from plots_data import PlotsData
+from pca import PlotsData
 
 st.set_page_config(page_title="MonitorWater - Análise Exploratória", page_icon="📈", layout="wide")
 
