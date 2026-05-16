@@ -344,10 +344,13 @@ class IQACalculator:
             
             
             # Tenta obter a chave da API
-            try:
-                api_key = st.secrets["GEMINI_API_KEY"]
-            except (FileNotFoundError, KeyError):
-                api_key = os.environ.get("GEMINI_API_KEY")
+            # Primeiro checa a variável de ambiente para evitar o aviso (warning) do Streamlit no GCP
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if not api_key:
+                try:
+                    api_key = st.secrets["GEMINI_API_KEY"]
+                except (FileNotFoundError, KeyError, Exception):
+                    pass
 
             if not api_key:
                 return "⚠️ **Chave de API não configurada.** Defina `GEMINI_API_KEY` nos secrets do Streamlit ou variáveis de ambiente."
