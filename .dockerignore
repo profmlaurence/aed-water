@@ -1,0 +1,12 @@
+.venv
+__pycache__
+.git
+.gitignore
+.streamlit/secrets.toml
+.DS_Store
+*.pyc
+*.pyo
+*.pyd
+.db
+.sqlite3
+node_modules
