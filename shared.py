@@ -73,13 +73,27 @@ def analyse_graph(fig, user_prompt: str = "Extraia os principais insights deste 
     Analisa um gráfico (Plotly, Mat`plotlib ou bytes) usando a IA do Gemini.
     """
     from google.genai import types
+    import traceback
+    
     try:
         # 1. Obter os bytes da imagem dependendo do tipo de entrada
         if isinstance(fig, bytes):
             img_bytes = fig
         elif hasattr(fig, "to_image"): # Plotly
+            import plotly.io as pio
+            
+            # Ajuste crítico para o Kaleido rodar no Docker (GCP Cloud Run) sem travar silenciosamente
+            try:
+                args = list(pio.kaleido.scope.chromium_args)
+                if "--no-sandbox" not in args:
+                    args.extend(["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
+                    pio.kaleido.scope.chromium_args = tuple(args)
+            except AttributeError:
+                pass # Caso a versão do plotly não suporte esse atributo
+
             img_bytes = fig.to_image(format="png", engine="kaleido")
         elif hasattr(fig, "savefig"): # Matplotlib
+            import io
             buf = io.BytesIO()
             fig.savefig(buf, format="png", bbox_inches='tight')
             img_bytes = buf.getvalue()
@@ -106,8 +120,11 @@ def analyse_graph(fig, user_prompt: str = "Extraia os principais insights deste 
         return response.text
         
     except Exception as e:
+        error_details = traceback.format_exc()
         st.error(f"Erro na comunicação com a IA ou renderização: {e}")
-        return None
+        with st.expander("Detalhes do erro para debug"):
+            st.code(error_details)
+        return "❌ Ocorreu um erro ao processar o gráfico."
 
 
 def render_ia_analyze_button(fig, key: str, prompt: str = None):
