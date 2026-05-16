@@ -3,9 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import io
-from shared import explicar_grafico
+from shared import render_ia_analyze_button
 
 
 class AnalysisPlots:
@@ -25,21 +23,10 @@ class AnalysisPlots:
         """Retorna apenas as colunas numéricas do dataset."""
         return self.dataset.select_dtypes(include=[np.number])
 
-    def _add_download_button(self, fig, label: str, file_name: str):
-        """Salva a figura matplotlib em buffer e exibe o botão de download."""
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches='tight')
-        st.download_button(
-            label=label,
-            data=buf.getvalue(),
-            file_name=file_name,
-            mime="image/png"
-        )
-
     # ── Tab 1: Visão Geral ────────────────────────────────────────────────────
 
     def _plot_correlation_heatmap(self):
-        """Mapa de calor de correlação."""
+        """Mapa de calor de correlação profissional usando Plotly Graph Objects."""
         numeric_data = self._get_numeric_data()
         numeric_data = numeric_data.loc[:, numeric_data.std() > 1e-8]
 
@@ -49,12 +36,44 @@ class AnalysisPlots:
 
         corr = numeric_data.corr()
 
-        fig = px.imshow(
-            corr, text_auto=".2f", color_continuous_scale='RdBu_r',
-            zmin=-1, zmax=1, aspect='auto'
+        fig = go.Figure(data=go.Heatmap(
+            z=corr.values,
+            x=corr.columns,
+            y=corr.columns,
+            colorscale='RdBu_r',
+            zmin=-1, zmax=1,
+            colorbar=dict(title="Pearson"),
+            hovertemplate='<b>Variável X</b>: %{x}<br><b>Variável Y</b>: %{y}<br><b>Correlação</b>: %{z:.2f}<extra></extra>'
+        ))
+
+        # Adicionar anotações se houver poucas colunas
+        if len(corr.columns) <= 15:
+            annotations = []
+            for i, row in enumerate(corr.values):
+                for j, val in enumerate(row):
+                    annotations.append(
+                        dict(
+                            text=f"{val:.2f}",
+                            x=corr.columns[j],
+                            y=corr.columns[i],
+                            xref='x', yref='y',
+                            showarrow=False,
+                            font=dict(color='white' if abs(val) > 0.5 else 'black')
+                        )
+                    )
+            fig.update_layout(annotations=annotations)
+
+        fig.update_layout(
+            title="Matriz de Correlação entre Variáveis",
+            xaxis_showgrid=False,
+            xaxis_autorange='reversed',
+            yaxis_showgrid=False,
+            yaxis_autorange='reversed',
+            margin=dict(t=80, b=50, l=50, r=50),
+            height=650
         )
-        fig.update_layout(margin=dict(t=30, b=30))
-        st.plotly_chart(fig, width='stretch')
+
+        st.plotly_chart(fig, width='content')
         return fig
 
     def _tab_visao_geral(self):
@@ -68,16 +87,13 @@ class AnalysisPlots:
             "indicam relações lineares fortes."
         )
         fig = self._plot_correlation_heatmap()
-        
-        if fig and st.button("Explicar Correlações com IA", icon="🧠", key="explain_corr"):
-            with st.spinner("Analisando as correlações..."):
-                explicacao = explicar_grafico(
-                    fig, 
-                    user_prompt="Identifique e explique as principais correlações positivas e negativas deste mapa de calor de propriedades da água."
-                )
-                st.badge("Modelo: gemini-flash 2.5", icon="🤖",color="blue")
-                st.markdown(explicacao)
-
+        if fig:
+            render_ia_analyze_button(
+                fig, 
+                key="explain_corr",
+                prompt="Analise esta matriz de correlação de Pearson entre as propriedades da água. Destaque as correlações positivas ou negativas mais fortes. Responda no máximo em 150 palavras."
+            )
+                
     # ── Tab 2: Distribuições ──────────────────────────────────────────────────
 
     def _plot_feature_distribution(self, feature: str):
@@ -117,15 +133,13 @@ class AnalysisPlots:
             "Selecione a propriedade:", self.features, key="dist_selectbox"
         )
         fig_hist = self._plot_feature_distribution(feat_hist)
+        if fig_hist:
+            render_ia_analyze_button(
+                fig_hist, 
+                key="explain_hist",
+                prompt=f"Analise a distribuição da variável {feat_hist} (histograma e boxplot) e explique o que os dados sugerem sobre a qualidade da água. Resposta no máximo em 150 palavras."
+            )
 
-        if st.button("Explicar Distribuição com IA", icon="🧠", key="explain_hist"):
-            with st.spinner("Analisando a distribuição..."):
-                explicacao = explicar_grafico(
-                    fig_hist,
-                    user_prompt=f"Analise a distribuição da variável {feat_hist} (histograma e boxplot) e explique o que os dados sugerem sobre a qualidade da água."
-                )
-                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
-                st.markdown(explicacao)
 
         st.divider()
 
@@ -138,15 +152,12 @@ class AnalysisPlots:
             "Selecione a propriedade:", self.features, key="violin_selectbox"
         )
         fig_violin = self._plot_violin(feat_violin)
-
-        if st.button("Explicar Violino com IA", icon="🧠", key="explain_violin"):
-            with st.spinner("Analisando o gráfico violino..."):
-                explicacao = explicar_grafico(
-                    fig_violin,
-                    user_prompt=f"Explique o gráfico violino da variável {feat_violin}, destacando a densidade dos dados e a presença de outliers."
-                )
-                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
-                st.markdown(explicacao)
+        if fig_violin:
+            render_ia_analyze_button(
+                fig_violin, 
+                key="explain_violin",
+                prompt=f"Explique o gráfico violino da variável {feat_violin}, destacando a densidade dos dados e a presença de outliers. Resposta no máximo em 150 palavras."
+            )
 
     # ── Tab 3: Análise Multivariada ───────────────────────────────────────────
 
@@ -226,15 +237,13 @@ class AnalysisPlots:
             "Ajuda a encontrar padrões e faixas de valores entre as variáveis."
         )
         fig_parallel = self._plot_parallel_coordinates()
-
-        if st.button("Explicar com IA", icon="🧠", key="explain_parallel"):
-            with st.spinner("Analisando as coordenadas paralelas..."):
-                explicacao = explicar_grafico(
-                    fig_parallel,
-                    user_prompt=f"Explique as coordenadas paralelas, destacando os principais padrões e relações entre as variáveis."
-                )
-                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
-                st.markdown(explicacao)
+        if fig_parallel:
+            render_ia_analyze_button(
+                fig_parallel, 
+                key="explain_parallel",
+                prompt="Analise o gráfico de coordenadas paralelas, destacando os agrupamentos e as relações inversas ou diretas entre as múltiplas variáveis. Responda no máximo em 150 palavras."
+            )
+        
 
         st.divider()
 
@@ -244,15 +253,12 @@ class AnalysisPlots:
             "Permite uma visão holística rápida das variáveis."
         )
         fig_radar = self._plot_spider_chart()
-
-        if st.button("Explicar com IA", icon="🧠", key="explain_radar"):
-            with st.spinner("Analisando o gráfico de radar..."):
-                explicacao = explicar_grafico(
-                    fig_radar,
-                    user_prompt=f"Explique o gráfico de radar, destacando os principais padrões e relações entre as variáveis."
-                )
-                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
-                st.markdown(explicacao)
+        if fig_radar:
+            render_ia_analyze_button(
+                fig_radar, 
+                key="explain_radar",
+                prompt="Analise o gráfico de radar mostrando a média normalizada das propriedades da água. Destaque quais parâmetros se sobressaem na média global. Responda no máximo em 150 palavras."
+            )
 
         st.divider()
 
@@ -261,15 +267,13 @@ class AnalysisPlots:
             "Visão cruzada de todas as propriedades entre si."
         )
         fig_scatter_matrix = self._plot_scatter_matrix()
+        if fig_scatter_matrix:
+            render_ia_analyze_button(
+                fig_scatter_matrix, 
+                key="explain_scatter_matrix",
+                prompt="Analise a matriz de dispersão cruzada. Identifique as correlações lineares mais evidentes ou padrões distintos de agrupamento das amostras. Responda no máximo em 150 palavras."
+            )
 
-        if st.button("Explicar com IA", icon="🧠", key="explain_scatter_matrix"):
-            with st.spinner("Analisando a matriz de dispersão..."):
-                explicacao = explicar_grafico(
-                    fig_scatter_matrix,
-                    user_prompt=f"Explique a matriz de dispersão, destacando os principais padrões e relações entre as variáveis."
-                )
-                st.badge("Modelo: gemini-flash 2.5", icon="🤖", color="blue")
-                st.markdown(explicacao)
 
     # ── Tab 4: Avançado ───────────────────────────────────────────────────────
 
@@ -321,15 +325,12 @@ class AnalysisPlots:
                 key='3d_z',
             )
         fig_3d = self._plot_3d_scatter(x=x_3d, y=y_3d, z=z_3d)
-
-        if st.button("Explicar com IA", icon="🧠", key="explain_3d"):
-            with st.spinner("Analisando o gráfico 3D..."):
-                explicacao = explicar_grafico(
-                    fig_3d,
-                    user_prompt=f"Explique o gráfico 3D, destacando os principais padrões e relações entre as variáveis."
-                )
-                st.badge("Modelo: gemini-flash 2.5", color="blue")
-                st.markdown(explicacao)    
+        if fig_3d:
+            render_ia_analyze_button(
+                fig_3d, 
+                key="explain_3d",
+                prompt=f"Explique o gráfico 3D, destacando os principais padrões e relações entre as variáveis {x_3d}, {y_3d} e {z_3d}. Responda no máximo em 150 palavras."
+            )
 
 
     # ── Entry Point ───────────────────────────────────────────────────────────

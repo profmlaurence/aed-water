@@ -241,14 +241,13 @@ with st.expander("📚 Referências e Metodologia"):
 
 st.divider()
 
-st.markdown("## 💬 Explicação com IA")
-
 if st.button("Gerar Explicação Geral com IA", icon="🧠"):
     with st.spinner("Analisando os resultados..."):
         explicacao = calc.explicar_iqa(
             results_df, 
             user_prompt="Faça um resumo geral da qualidade da água dos pontos coletados, destacando os pontos críticos e os melhores pontos."
         )
+        st.caption("🤖 **Modelo:** gemini-2.5-flash-lite")
         st.markdown(explicacao)
 
 render_footer()

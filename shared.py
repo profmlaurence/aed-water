@@ -68,78 +68,59 @@ def conn_genai():
         st.error(f"Erro ao conectar com a IA: {e}")
         return None
 
-
-def analisar_dados_com_ia(dados_txt, prompt=None):
+def analyse_graph(fig, user_prompt: str = "Extraia os principais insights deste gráfico de qualidade da água. Responda no máximo em 150 palavras"):
     """
-    Recebe um texto com dados numéricos e solicita análise ao Gemini.
+    Analisa um gráfico (Plotly, Mat`plotlib ou bytes) usando a IA do Gemini.
     """
-    if prompt is None:
-        prompt = "Analise os seguintes dados técnicos e descreva os principais padrões, correlações ou anomalias de forma clara e objetiva."
-
-    client = conn_genai()
-    if not client:
-        return "⚠️ Chave de API não configurada ou erro de conexão."
-
+    from google.genai import types
     try:
-        with st.spinner("IA analisando os dados..."):
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=f"{prompt}\n\nDados:\n{dados_txt}"
-            )
-            return response.text
-    except Exception as e:
-        return f"❌ Erro na análise: {e}"
-
-
-def analyse_graph(image_bytes, prompt="Você é um especialista em qualidade da água auxiliando no Laboratório de Pesquisa em Química Ambiental (LAPEQ). Analise este gráfico e descreva os principais padrões, correlações ou anomalias de forma clara e objetiva. RESUMA EM 150 palavras no máximo"):
-    """
-    Recebe a imagem de um gráfico em bytes, envia para o Gemini e retorna a análise.
-    """
-    client = conn_genai()
-    if not client:
-        return "⚠️ Não foi possível conectar com a IA para analisar o gráfico."
-        
-    try:
-        from google.genai import types
-        # Converte os bytes em uma imagem PIL, que é o formato esperado pelo modelo multimodal
-        image = Image.open(io.BytesIO(image_bytes))
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[prompt, image]
-        )
-        return response.text
-    except Exception as e:
-        st.error(f"Erro ao analisar o gráfico com a IA: {e}")
-        return None
-
-
-def explicar_grafico(fig, user_prompt: str = "Extraia os principais insights deste gráfico de qualidade da água.") -> str:
-    """
-    Consome a API do Gemini enviando a imagem do gráfico (Plotly ou Matplotlib) para análise.
-    """
-    client = conn_genai()
-    if not client:
-        return "⚠️ **Chave de API não configurada.** Defina `GEMINI_API_KEY` nos secrets do Streamlit."
-
-    # Converte o gráfico para bytes de imagem
-    try:
-        if hasattr(fig, "to_image"): # Provavelmente Plotly
-            import plotly.io as pio
-            # Configuração para ambientes Linux Headless (Streamlit Cloud)
-            try:
-                if hasattr(pio.kaleido, "scope"):
-                    pio.kaleido.scope.chromium_args = ("--headless", "--no-sandbox", "--single-process", "--disable-gpu")
-            except Exception:
-                pass
-            img_bytes = fig.to_image(format="png")
-        elif hasattr(fig, "savefig"): # Provavelmente Matplotlib
+        # 1. Obter os bytes da imagem dependendo do tipo de entrada
+        if isinstance(fig, bytes):
+            img_bytes = fig
+        elif hasattr(fig, "to_image"): # Plotly
+            img_bytes = fig.to_image(format="png", engine="kaleido")
+        elif hasattr(fig, "savefig"): # Matplotlib
             buf = io.BytesIO()
             fig.savefig(buf, format="png", bbox_inches='tight')
             img_bytes = buf.getvalue()
             buf.close()
         else:
-            return "❌ Erro: O objeto fornecido não é um gráfico suportado (Plotly ou Matplotlib)."
-    except Exception as e:
-        return f"❌ Erro ao gerar a imagem do gráfico: {type(e).__name__}: {e}. Certifique-se de que o pacote `kaleido==0.2.1` está no `requirements.txt` e o `packages.txt` contém as dependências do sistema."
+            return "❌ Erro: O objeto fornecido não é um gráfico suportado (Plotly, Matplotlib ou Bytes)."
 
-    return analyse_graph(img_bytes, user_prompt)
+        # 2. Inicializa o cliente e envia para o Gemini
+        client = conn_genai()
+        if not client:
+            return "⚠️ Não foi possível conectar com a IA. Verifique sua chave API."
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=[
+                user_prompt,
+                types.Part.from_bytes(
+                    data=img_bytes,
+                    mime_type="image/png"
+                )
+            ]
+        )
+        
+        return response.text
+        
+    except Exception as e:
+        st.error(f"Erro na comunicação com a IA ou renderização: {e}")
+        return None
+
+
+def render_ia_analyze_button(fig, key: str, prompt: str = None):
+    """
+    Adiciona um botão para analisar o gráfico com IA.
+    Esta função é compartilhada entre todos os módulos do sistema.
+    """
+    if st.button("✨ Analisar com IA", key=key, type="secondary"):
+        with st.spinner("Processando o gráfico..."):
+            if prompt:
+                analise = analyse_graph(fig, user_prompt=prompt)
+            else:
+                analise = analyse_graph(fig)
+            st.caption("🤖 **Modelo:** gemini-2.5-flash-lite")
+            st.info(analise)
+

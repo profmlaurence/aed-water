@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+from google import genai
+import streamlit as st
+import os
 
 
 class IQACalculator:
@@ -338,9 +341,7 @@ class IQACalculator:
         Consome a API do Gemini para explicar os resultados do IQA baseando-se na pergunta do usuário.
         """
         try:
-            from google import genai
-            import streamlit as st
-            import os
+            
             
             # Tenta obter a chave da API
             try:
@@ -359,7 +360,7 @@ class IQACalculator:
             
             prompt = f"""
             Você é um especialista em qualidade da água auxiliando no Laboratório de Pesquisa em Química Ambiental (LAPEQ).
-            Analise os seguintes dados do Índice de Qualidade da Água (IQA) e responda à pergunta do usuário de forma didática.
+            Analise os seguintes dados do Índice de Qualidade da Água (IQA).
             
             DADOS DE IQA CALCULADOS:
             {data_csv}
@@ -376,7 +377,7 @@ class IQACalculator:
             """
 
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.5-flash-lite',
                 contents=prompt
             )
             

@@ -1,14 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from shared import analyse_graph
-import io
-import os
-from shared import explicar_grafico
+from shared import render_ia_analyze_button
 
 
 class PlotsData:
@@ -24,79 +23,6 @@ class PlotsData:
     def _get_numeric_data(self) -> pd.DataFrame:
         """Retorna apenas as colunas numéricas do dataset."""
         return self.dataset.select_dtypes(include=[np.number])
-
-    def _add_download_button(self, fig: plt.Figure, label: str, file_name: str):
-        """Salva a figura matplotlib em buffer e exibe o botão de download."""
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches='tight')
-        st.download_button(
-            label=label,
-            data=buf.getvalue(),
-            file_name=file_name,
-            mime="image/png"
-        )
-    
-    def _add_ia_analyze_button(self, fig: plt.Figure,key: str):
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches='tight')
-        image_bytes = buf.getvalue()
-        
-        if st.button("✨ Analisar Gráfico com IA",key=key):
-            with st.spinner("A IA está analisando o gráfico..."):
-                analise = analyse_graph(image_bytes)
-                st.write(analise)
-
-    def plot_correlation_matrix(self):
-        """Exibe a matriz de correlação das variáveis numéricas."""
-        st.markdown("### Matriz de Correlação")
-
-        numeric_data = self._get_numeric_data()
-        original_cols = numeric_data.columns
-        
-        # Remover colunas com variância zero ou com todos os valores NaN
-        numeric_data = numeric_data.loc[:, numeric_data.std() > 1e-8]
-
-        removed_cols = [col for col in original_cols if col not in numeric_data.columns]
-        # if removed_cols:
-        #     st.info(f"**Colunas ignoradas (variância zero/constantes):** {', '.join(removed_cols)}")
-
-        if numeric_data.shape[1] < 2:
-            st.warning(
-                "O dataset não possui colunas numéricas suficientes "
-                "para calcular a matriz de correlação."
-                f"Linhas: {numeric_data.shape[0]}, Colunas: {numeric_data.shape[1]}"
-            )
-            return
-
-        corr = numeric_data.corr()
-        st.dataframe(
-            corr.style.background_gradient(cmap='coolwarm', axis=None, vmin=-1, vmax=1)
-            .format("{:.2f}", na_rep="NaN")
-        )
-
-        # Renderizar Matplotlib em background para permitir o download em imagem
-        fig, ax = plt.subplots(figsize=(10, 8))
-        cax = ax.imshow(corr, cmap='coolwarm', vmin=-1, vmax=1)
-        fig.colorbar(cax)
-        
-        ax.set_xticks(range(len(corr.columns)))
-        ax.set_yticks(range(len(corr.columns)))
-        ax.set_xticklabels(corr.columns, rotation=45, ha='right', fontsize=8)
-        ax.set_yticklabels(corr.columns, fontsize=8)
-        
-        if len(corr.columns) <= 15:
-            for i in range(len(corr.columns)):
-                for j in range(len(corr.columns)):
-                    if not np.isnan(corr.iloc[i, j]):
-                        val = corr.iloc[i, j]
-                        color = 'white' if abs(val) > 0.5 else 'black'
-                        ax.text(j, i, f"{val:.2f}", ha='center', va='center', color=color, fontsize=8)
-                        
-        ax.set_title("Matriz de Correlação")
-        plt.tight_layout()
-
-        self._add_download_button(fig, "⬇️ Baixar Matriz de Correlação", "matriz_correlacao.png")
-        plt.close(fig)
 
     def plot_pca(self):
         """Exibe os gráficos de PCA (Dispersão e Biplot)."""
@@ -134,45 +60,60 @@ class PlotsData:
         pca_result = pca.fit_transform(scaled_df)
         pca_df = pd.DataFrame(pca_result, columns=['PCA1', 'PCA2'], index=scaled_df.index)
 
-        tab_scatter, tab_biplot, tab_explicacao = st.tabs(
-            ["Gráfico de Dispersão PCA", "Biplot PCA", "Explicação detalhada com IA (Gemini)"]
+        tab_scatter, tab_biplot = st.tabs(
+            ["Gráfico de Dispersão PCA", "Biplot PCA"]
         )
 
         with tab_scatter:
             fig_scatter = self._plot_pca_scatter(pca_df)
-            if st.button("Explicar Dispersão com IA", icon="🧠", key="explain_pca_scatter"):
-                with st.spinner("Analisando a dispersão..."):
-                    res = explicar_grafico(fig_scatter, user_prompt="Explique este gráfico de dispersão de PCA, focando no agrupamento dos pontos.")
-                    st.badge("Modelo: gemini-2.5-flash", color="info")
-                    st.markdown(res)
+            render_ia_analyze_button(fig_scatter, key='key_pca_scatter',
+            prompt="""Analise a projeção das amostras neste gráfico de dispersão PCA (scores plot).
+                        Focando na estrutura espacial desses dados tabulares, resuma em até 200 palavras:
+                        A dispersão e separabilidade dos pontos ao longo dos eixos PC1 e PC2.
+                        A presença de clusters naturais (agrupamentos de instâncias similares) e se há sobreposição entre eles.
+                        A existência de instâncias isoladas (outliers).
+                        Seja técnico e estritamente objetivo.
+                        Formate em tópicos.
+                    """)
 
         with tab_biplot:
             fig_biplot = self._plot_pca_biplot(pca, pca_result, scaled_df)
-            if st.button("Explicar Biplot com IA", icon="🧠", key="explain_pca_biplot"):
-                with st.spinner("Analisando o biplot..."):
-                    res = explicar_grafico(fig_biplot, user_prompt="Explique este Biplot de PCA, analisando a relação entre as variáveis (setas) e os pontos.")
-                    st.badge("Modelo: gemini-2.5-flash", color="info")
-                    st.markdown(res)
+            render_ia_analyze_button(fig_biplot, key='key_pca_biplot',
+            prompt="""Analise este biplot PCA e extraia os insights mais críticos em no máximo 200 palavras. 
+                        Estruture sua resposta abordando obrigatoriamente:
+                        1 - A proporção de variância explicada pelos eixos PC1 e PC2.
+                        2 - Variáveis altamente correlacionadas (setas apontando na mesma direção) e inversamente correlacionadas (direções opostas).
+                        3 - As variáveis com maior peso/importância (setas mais longas).
+                        4 - Existência de clusters evidentes ou amostras atípicas (outliers).
+                        Faça uma formatação em tópicos.
+                    """)
+        
 
-        with tab_explicacao:
-            self.explicar_pca(pca, scaled_df.columns)
+        # with tab_explicacao:
+        #     self.explicar_pca(pca, scaled_df.columns)
 
     def _plot_pca_scatter(self, pca_df: pd.DataFrame):
         """Gráfico de dispersão dos componentes principais."""
         st.markdown("##### Gráfico de Dispersão PCA")
         
-        fig, ax = plt.subplots(figsize=(10, 8))
-        ax.scatter(pca_df['PCA1'], pca_df['PCA2'], alpha=0.6, edgecolors='k')
-        ax.set_xlabel('PCA1')
-        ax.set_ylabel('PCA2')
-        ax.set_title('Dispersão PCA')
-        ax.grid(True, alpha=0.3)
-        ax.axhline(y=0, color='k', linewidth=0.5)
-        ax.axvline(x=0, color='k', linewidth=0.5)
+        fig = px.scatter(
+            pca_df, x='PCA1', y='PCA2',
+            title='Dispersão PCA',
+            opacity=0.7,
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        fig.update_layout(
+            xaxis_title='PCA1',
+            yaxis_title='PCA2',
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
         
-        st.pyplot(fig)
+        # Adicionar eixos x e y em 0
+        fig.add_hline(y=0, line_width=1, line_color="black", opacity=0.3)
+        fig.add_vline(x=0, line_width=1, line_color="black", opacity=0.3)
+        
+        st.plotly_chart(fig, width='content')
 
-        self._add_download_button(fig, "⬇️ Baixar Imagem da Dispersão", "dispersao_pca.png")
         return fig
 
     def _plot_pca_biplot(self, pca: PCA, pca_result: np.ndarray,
@@ -180,108 +121,64 @@ class PlotsData:
         """Biplot PCA com scores e loadings."""
         st.markdown("##### Biplot PCA")
 
-        # with col1:
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig = go.Figure()
 
         # Plotar os pontos dos dados (scores)
-        ax.scatter(pca_result[:, 0], pca_result[:, 1],
-                    alpha=0.6, edgecolors='k')
+        fig.add_trace(go.Scatter(
+            x=pca_result[:, 0],
+            y=pca_result[:, 1],
+            mode='markers',
+            name='Amostras',
+            marker=dict(color='rgba(102, 194, 165, 0.7)', size=8, line=dict(color='DarkSlateGrey', width=1)),
+            hovertemplate='PC1: %{x:.2f}<br>PC2: %{y:.2f}<extra></extra>'
+        ))
 
         # Plotar as setas das variáveis (loadings)
         loadings = pca.components_.T * np.sqrt(pca.explained_variance_)
-        for i, var in enumerate(scaled_df.columns):
-            ax.arrow(0, 0, loadings[i, 0], loadings[i, 1],
-                        head_width=0.1, head_length=0.1,
-                        fc='red', ec='red', alpha=0.7)
-            ax.text(loadings[i, 0] * 1.15, loadings[i, 1] * 1.15, str(i + 1),
-                    fontsize=10, fontweight='bold', color='red')
-
-        ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%})')
-        ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%})')
-        ax.set_title('Biplot PCA')
-        ax.grid(True, alpha=0.3)
-        ax.axhline(y=0, color='k', linewidth=0.5)
-        ax.axvline(x=0, color='k', linewidth=0.5)
-
-        st.pyplot(fig)
-
-        self._add_download_button(fig, "⬇️ Baixar Imagem do Biplot", "biplot_pca.png")
-        return fig
-
-        # st.divider()
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.markdown("**Legenda**")
-            st.dataframe({"Variáveis": scaled_df.columns})
-            # for i, var in enumerate(scaled_df.columns, 1):
-            #     st.badge(f"{i} - {var}", color="red")
-            
-
-    def explicar_pca(self, pca: PCA, columns: pd.Index):
-        """
-        Consome a API do Gemini para gerar uma explicação do PCA.
-        """
-        st.markdown("### Explicação do PCA gerada por IA")
         
-        # Tenta obter a chave da API dos secrets do Streamlit ou variável de ambiente
-        try:
-            api_key = st.secrets["GEMINI_API_KEY"]
-        except (FileNotFoundError, KeyError):
-            api_key = os.environ.get("GEMINI_API_KEY")
-
-        if not api_key:
-            st.info(
-                "💡 **Dica:** Para habilitar as explicações com IA, configure sua chave de API do Google Gemini. "
-                "Adicione `GEMINI_API_KEY = 'sua-chave'` no arquivo `.streamlit/secrets.toml` "
-                "ou defina como variável de ambiente."
-            )
-            return
-
-        try:
-            from google import genai
+        annotations = []
+        for i, var in enumerate(scaled_df.columns):
+            # Adicionar a linha da seta
+            fig.add_trace(go.Scatter(
+                x=[0, loadings[i, 0]],
+                y=[0, loadings[i, 1]],
+                mode='lines',
+                line=dict(color='red', width=1.5),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
             
-            client = genai.Client(api_key=api_key)
-
-            variancia_explicada = pca.explained_variance_ratio_
-            loadings = pd.DataFrame(
-                pca.components_.T,
-                columns=['PC1', 'PC2'],
-                index=columns
-            )
-            
-            prompt = f"""
-            Você é um especialista em análise de dados auxiliando no Laboratório de Pesquisa em Química Ambiental (LAPEQ).
-            Analise os seguintes resultados de uma Análise de Componentes Principais (PCA) 
-            de um dataset de qualidade da água e gere um texto explicativo em português claro, em markdown.
-            
-            1. O primeiro componente (PC1) explica {variancia_explicada[0]:.1%} da variância total.
-            2. O segundo componente (PC2) explica {variancia_explicada[1]:.1%} da variância total.
-            3. Variância total explicada: {(variancia_explicada[0] + variancia_explicada[1]):.1%}
-            
-            Aqui estão as cargas (loadings) das variáveis originais em cada componente (quanto maior o valor absoluto, maior a influência da variável naquele componente):
-            
-            {loadings.to_string()}
-            
-            Por favor, explique de forma didática:
-            - O que esses dois componentes (PC1 e PC2) podem representar em termos físicos/químicos da água, baseando-se nas variáveis com maiores pesos (positivos ou negativos) em cada um.
-            - Quais variáveis andam juntas (estão correlacionadas).
-            - Um pequeno resumo sobre o que esses dados sugerem sobre a qualidade/perfil das amostras.
-            
-            Responda de forma direta e amigável.
-            """
-            
-            with st.spinner("🧠 O Gemini está analisando o gráfico..."):
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt
+            # Adicionar a anotação do texto (número da variável) na ponta da seta
+            annotations.append(
+                dict(
+                    x=loadings[i, 0] * 1.15,
+                    y=loadings[i, 1] * 1.15,
+                    xref="x", yref="y",
+                    text=str(i + 1),
+                    showarrow=False,
+                    font=dict(color="red", size=12, family="Arial Black"),
+                    hovertext=var
                 )
-                st.badge("Modelo: gemini-2.5-flash", color="info")
-                st.write(response.text)
-                
-        except ImportError:
-            st.error("O pacote `google-genai` não está instalado. Execute `pip install google-genai`.")
-        except Exception as e:
-            st.error(f"Erro ao gerar explicação: {str(e)}")
+            )
+
+        fig.update_layout(
+            xaxis_title=f'PC1 ({pca.explained_variance_ratio_[0]:.1%})',
+            yaxis_title=f'PC2 ({pca.explained_variance_ratio_[1]:.1%})',
+            title='Biplot PCA',
+            annotations=annotations,
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
+        
+        # Adicionar eixos x e y em 0
+        fig.add_hline(y=0, line_width=1, line_color="black", opacity=0.3)
+        fig.add_vline(x=0, line_width=1, line_color="black", opacity=0.3)
+
+        st.plotly_chart(fig, width='content')
+
+        with st.expander("**Legenda das Variáveis (Setas Vermelhas)**",icon="🔢"):
+            st.dataframe({"Variável": scaled_df.columns})
+            
+        return fig
 
     def run(self):
         """Executa a análise exploratória completa."""
