@@ -8,6 +8,23 @@ ENV PYTHONUNBUFFERED=1
 # Define o diretório de trabalho dentro do contêiner
 WORKDIR /app
 
+# Instala o Chromium e bibliotecas de sistema necessárias para o Kaleido/Chromium rodar em modo headless
+RUN apt-get update && apt-get install -y \
+    chromium \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libxcomposite1 \
+    libxrandr2 \
+    libgbm1 \
+    libxkbcommon0 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Força o Kaleido a encontrar o Chromium
+ENV BROWSER_PATH=/usr/bin/chromium
+
 # Copia os arquivos de dependências e instala
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
